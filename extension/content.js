@@ -79,36 +79,47 @@
     function extractArtifacts() {
         const artifacts = [];
         
-        // Tenta múltiplos seletores para encontrar artefatos
-        const selectors = [
-            '[data-testid="artifact"]',
-            '.artifact',
-            '[class*="artifact"]',
-            '.prose .language-',
-            'pre code',
-            'svg',
-            'iframe'
-        ];
+        // Primeiro, tenta o seletor oficial do Claude AI
+        let artifactElements = document.querySelectorAll('[data-testid="artifact"]');
+        console.log(`Seletor principal "[data-testid="artifact"]": encontrou ${artifactElements.length} elementos`);
         
-        let artifactElements = [];
-        for (const selector of selectors) {
-            artifactElements = document.querySelectorAll(selector);
-            console.log(`Seletor "${selector}": encontrou ${artifactElements.length} elementos`);
-            if (artifactElements.length > 0) break;
+        // Se não encontrou com o seletor principal, tenta outros seletores específicos de artefatos
+        if (artifactElements.length === 0) {
+            const specificSelectors = [
+                '.artifact',
+                '[class*="artifact"]',
+                '[data-component="artifact"]',
+                '.claude-artifact'
+            ];
+            
+            for (const selector of specificSelectors) {
+                artifactElements = document.querySelectorAll(selector);
+                console.log(`Seletor específico "${selector}": encontrou ${artifactElements.length} elementos`);
+                if (artifactElements.length > 0) break;
+            }
         }
         
-        console.log(`Total de elementos para processar: ${artifactElements.length}`);
-        
-        // Se não encontrou elementos com seletores específicos, 
-        // tenta buscar blocos de código diretamente
+        // Apenas como último recurso, procura por blocos de código isolados
+        // MAS aplica filtros para evitar capturar conteúdo incorreto
         if (artifactElements.length === 0) {
-            console.log('Tentando fallback: buscando blocos de código...');
-            const codeBlocks = document.querySelectorAll('pre, code, .highlight');
-            console.log(`Blocos de código encontrados: ${codeBlocks.length}`);
+            console.log('Aplicando fallback com filtros...');
+            const potentialElements = document.querySelectorAll('pre code');
             
-            if (codeBlocks.length > 0) {
-                artifactElements = codeBlocks;
-            }
+            // Filtra apenas elementos que parecem ser artefatos reais
+            artifactElements = Array.from(potentialElements).filter(element => {
+                const content = element.textContent.trim();
+                const parent = element.closest('div, article, section');
+                
+                // Critérios para considerar um artefato válido:
+                // 1. Conteúdo mínimo (mais de 20 caracteres)
+                // 2. Não está dentro de uma mensagem de chat (evita código de exemplo em conversas)
+                // 3. Tem características de código estruturado
+                return content.length > 20 && 
+                       !parent?.querySelector('[data-testid="user-message"], [data-testid="assistant-message"]') &&
+                       (content.includes('\n') || content.includes('{') || content.includes('function') || content.includes('def '));
+            });
+            
+            console.log(`Elementos filtrados por critérios: ${artifactElements.length}`);
         }
         
         artifactElements.forEach((element, index) => {
@@ -123,22 +134,36 @@
                                    
                 const title = titleElement?.textContent?.trim() || `Artifact_${index + 1}`;
                 
-                // Lógica mais flexível para encontrar conteúdo
-                let contentElement = element;
-                
-                // Se o elemento atual é um container, procura conteúdo dentro
-                if (element.querySelector('pre, code, svg, iframe')) {
-                    contentElement = element.querySelector('pre code') || 
-                                   element.querySelector('pre') ||
-                                   element.querySelector('code') ||
-                                   element.querySelector('svg') ||
-                                   element.querySelector('iframe') ||
-                                   element;
-                }
-                
+                // Lógica mais precisa para encontrar conteúdo
+                let contentElement = null;
                 let content = '';
                 let mimeType = 'text/plain';
                 let language = '';
+                
+                // Verifica se o elemento é um container de artefato oficial
+                if (element.hasAttribute('data-testid') && element.getAttribute('data-testid') === 'artifact') {
+                    // Para artefatos oficiais, busca o conteúdo específico
+                    contentElement = element.querySelector('pre code') || 
+                                   element.querySelector('code') ||
+                                   element.querySelector('pre') ||
+                                   element.querySelector('svg') ||
+                                   element.querySelector('iframe');
+                } else if (element.tagName === 'CODE' || element.tagName === 'PRE') {
+                    // Se o elemento já é um bloco de código
+                    contentElement = element;
+                } else {
+                    // Para outros containers, procura conteúdo
+                    contentElement = element.querySelector('pre code') || 
+                                   element.querySelector('code') ||
+                                   element.querySelector('pre') ||
+                                   element.querySelector('svg') ||
+                                   element.querySelector('iframe');
+                }
+                
+                if (!contentElement) {
+                    console.warn(`Elemento ${index + 1}: Nenhum conteúdo válido encontrado`);
+                    return;
+                }
                 
                 console.log(`Elemento de conteúdo:`, contentElement.tagName, contentElement.className);
                 
@@ -166,14 +191,28 @@
                     mimeType = 'text/markdown';
                 }
                 
-                if (content.trim()) {
-                    artifacts.push({
-                        title: sanitizeFilename(title),
-                        content: content,
-                        mimeType: mimeType,
-                        language: language,
-                        index: index + 1
-                    });
+                // Validação de conteúdo antes de adicionar aos artefatos
+                if (content.trim() && content.length > 10) {
+                    // Evita capturar conteúdo que claramente não é um artefato
+                    const isValidArtifact = !content.includes('claude_extension.json') && 
+                                          !content.includes('popup.html') &&
+                                          !content.includes('manifest.json') &&
+                                          !content.includes('This may or may not be related');
+                    
+                    if (isValidArtifact) {
+                        console.log(`✅ Artefato ${index + 1} adicionado: "${title}" (${content.length} chars)`);
+                        artifacts.push({
+                            title: sanitizeFilename(title),
+                            content: content,
+                            mimeType: mimeType,
+                            language: language,
+                            index: index + 1
+                        });
+                    } else {
+                        console.log(`⚠️ Artefato ${index + 1} rejeitado: conteúdo parece ser metadados`);
+                    }
+                } else {
+                    console.log(`⚠️ Artefato ${index + 1} rejeitado: conteúdo vazio ou muito pequeno`);
                 }
             } catch (error) {
                 console.error(`Erro ao processar artefato ${index + 1}:`, error);
