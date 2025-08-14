@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Claude Artifacts Downloader",
+  "version": "1.0.0",
+  "description": "Download all artifacts from Claude conversations with one click",
+  "permissions": [
+    "activeTab",
+    "downloads"
+  ],
+  "host_permissions": [
+    "https://claude.ai/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Download Claude Artifacts"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://claude.ai/*"],
+      "js": ["content.js"],
+      "run_at": "document_end",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["jszip.min.js"],
+      "matches": ["https://claude.ai/*"]
+    }
+  ]
+}
