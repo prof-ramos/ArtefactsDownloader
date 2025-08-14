@@ -48,24 +48,32 @@ Ferramenta para download em massa de artefatos do Claude AI com três implementa
 
 **Como instalar:**
 1. Abra `chrome://extensions/`
-2. Ative o "Modo do desenvolvedor"
+2. Ative o "Modo do desenvolvedor" (toggle no canto superior direito)
 3. Clique em "Carregar sem compactação"
-4. Selecione a pasta do projeto
+4. Selecione a pasta `extension/` do projeto
 5. A extensão aparecerá na barra de ferramentas
 
 **Como usar:**
 1. Navegue para uma conversa no Claude AI
-2. Clique no ícone da extensão
-3. Configure as opções desejadas:
+2. **Atualize a página** (F5) para carregar o content script
+3. Clique no ícone da extensão 📦
+4. Configure as opções desejadas:
    - ✅ Incluir texto da conversa
    - ✅ Download como ZIP
    - ✅ Adicionar timestamp
-4. Clique em "Download All Artifacts"
+5. Clique em "🔍 Scan for Artifacts" para verificar
+6. Clique em "📥 Download All Artifacts"
 
 **Vantagens:**
 - Interface gráfica intuitiva
 - Todas as funcionalidades disponíveis
 - Fácil configuração de opções
+- Debug detalhado via console (F12)
+
+**⚠️ Solução de Problemas:**
+- **"Extension not ready"**: Atualize a página Claude AI
+- **"No artifacts found"**: Execute `test-selectors.js` no console
+- **Erro de conexão**: Recarregue a extensão em chrome://extensions/
 
 ## 📁 Tipos de Arquivo Suportados
 
@@ -156,6 +164,35 @@ ArtefactsDownloader/
 - **JSZip**: Carregado dinamicamente do CDN para criação de arquivos ZIP
 - **Chrome Extensions API**: Para a versão extensão
 - **DOM APIs**: Para extração de conteúdo da página
+
+## 🐛 Debug e Troubleshooting
+
+### Script de Diagnóstico
+Para diagnosticar problemas com seletores DOM, execute no console (F12) do Claude AI:
+
+```javascript
+// Copie e cole o conteúdo de test-selectors.js
+// Ou execute diretamente:
+fetch('https://raw.githubusercontent.com/prof-ramos/ArtefactsDownloader/main/test-selectors.js')
+  .then(r => r.text())
+  .then(eval);
+```
+
+### Logs de Debug
+A extensão gera logs detalhados no console:
+1. Abra F12 → Console em uma página Claude AI
+2. Execute a extensão
+3. Veja logs como:
+   - "Content script carregado"
+   - "Seletor encontrou X elementos"
+   - "Processando elemento..."
+
+### Problemas Comuns
+| Erro | Causa | Solução |
+|------|--------|---------|
+| "Extension not ready" | Content script não carregou | Refresh da página |
+| "No artifacts found" | Seletores DOM mudaram | Executar test-selectors.js |
+| "Could not establish connection" | Extensão não instalada corretamente | Recarregar extensão |
 
 ## 📝 Limitações
 
